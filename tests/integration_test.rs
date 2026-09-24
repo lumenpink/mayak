@@ -1,6 +1,6 @@
 use mayak::{
-    find_available_port, guess_mime, parse_args, parse_range_header, resolve_path, Action,
-    ByteRange,
+    execute_bridge_command, find_available_port, guess_mime, parse_args, parse_range_header,
+    resolve_path, verify_auth, Action, ByteRange,
 };
 use std::fs::{self, File};
 use std::io::Write;
@@ -129,7 +129,70 @@ fn test_integration_parse_args_all_options() {
             assert!(cfg.open_browser);
             assert!(cfg.quiet);
             assert_eq!(cfg.dir, PathBuf::from("custom_dir"));
+            assert_eq!(cfg.bridge, None);
+            assert_eq!(cfg.auth, None);
         }
         _ => panic!("Expected Action::Run"),
     }
+}
+
+#[test]
+fn test_integration_parse_args_bridge_and_auth() {
+    let args = vec![
+        "--bridge".to_string(),
+        "cccp".to_string(),
+        "--auth".to_string(),
+        "gosplan-secret".to_string(),
+    ];
+    let action = parse_args(args).unwrap();
+    match action {
+        Action::Run(cfg) => {
+            assert_eq!(cfg.bridge, Some("cccp".to_string()));
+            assert_eq!(cfg.auth, Some("gosplan-secret".to_string()));
+        }
+        _ => panic!("Expected Action::Run"),
+    }
+}
+
+#[test]
+fn test_integration_verify_auth() {
+    let token = "komsomol-token-1922";
+
+    // Valid Bearer
+    assert!(verify_auth(Some("Bearer komsomol-token-1922"), None, token));
+    assert!(verify_auth(Some("bearer komsomol-token-1922"), None, token));
+
+    // Valid X-Mayak-Token
+    assert!(verify_auth(None, Some("komsomol-token-1922"), token));
+
+    // Invalid
+    assert!(!verify_auth(Some("Bearer wrong-token"), None, token));
+    assert!(!verify_auth(None, Some("wrong-token"), token));
+    assert!(!verify_auth(Some("Basic 1234"), None, token));
+    assert!(!verify_auth(None, None, token));
+}
+
+#[test]
+fn test_integration_execute_bridge_command() {
+    // 1. Echo command
+    let res = execute_bridge_command("echo", &["hello".to_string(), "world".to_string()], None)
+        .expect("echo should execute");
+    assert!(res.ok);
+    assert_eq!(res.exit_code, 0);
+    assert_eq!(res.stdout.trim(), "hello world");
+
+    // 2. Command with stdin
+    let res_cat = execute_bridge_command("cat", &[], Some("Gosplan Transmitter"))
+        .expect("cat should execute");
+    assert!(res_cat.ok);
+    assert_eq!(res_cat.exit_code, 0);
+    assert_eq!(res_cat.stdout, "Gosplan Transmitter");
+
+    // 3. Failing command
+    let res_false = execute_bridge_command("false", &[], None).expect("false should execute");
+    assert!(!res_false.ok);
+    assert_ne!(res_false.exit_code, 0);
+
+    // 4. Non-existent binary
+    assert!(execute_bridge_command("non_existent_binary_xyz_123", &[], None).is_err());
 }

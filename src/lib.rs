@@ -20,6 +20,8 @@ pub struct Config {
     pub cors: bool,
     pub open_browser: bool,
     pub quiet: bool,
+    pub bridge: Option<String>,
+    pub auth: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -46,6 +48,8 @@ where
     let mut cors = false;
     let mut open_browser = false;
     let mut quiet = false;
+    let mut bridge: Option<String> = None;
+    let mut auth: Option<String> = None;
     let mut dir: Option<PathBuf> = None;
 
     let mut iter = args.into_iter().peekable();
@@ -58,6 +62,18 @@ where
             "--cors" => cors = true,
             "-o" | "--open" => open_browser = true,
             "-q" | "--quiet" => quiet = true,
+            "--bridge" => {
+                let val = iter
+                    .next()
+                    .ok_or("Option '--bridge' requires a command binary argument")?;
+                bridge = Some(val);
+            }
+            "--auth" => {
+                let val = iter
+                    .next()
+                    .ok_or("Option '--auth' requires a token argument")?;
+                auth = Some(val);
+            }
             "-p" | "--port" => {
                 let val = iter
                     .next()
@@ -125,7 +141,45 @@ where
         cors,
         open_browser,
         quiet,
+        bridge,
+        auth,
     }))
+}
+
+#[derive(Debug, Clone, serde::Deserialize, PartialEq, Eq)]
+pub struct BridgeRequest {
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub stdin: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct BridgeResponse {
+    pub ok: bool,
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+pub fn verify_auth(
+    auth_header: Option<&str>,
+    x_token_header: Option<&str>,
+    expected_token: &str,
+) -> bool {
+    let _ = (auth_header, x_token_header, expected_token);
+    // Failing stub for TDD
+    false
+}
+
+pub fn execute_bridge_command(
+    binary: &str,
+    args: &[String],
+    input: Option<&str>,
+) -> Result<BridgeResponse, String> {
+    let _ = (binary, args, input);
+    // Failing stub for TDD
+    Err("Not implemented".to_string())
 }
 
 /// Finds an available port starting from `start_port` up to `start_port + 100`
