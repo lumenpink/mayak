@@ -103,7 +103,7 @@ fn test_integration_safe_path_resolution() {
 #[test]
 fn test_integration_available_port_finder() {
     let port = find_available_port("127.0.0.1", 19000).expect("should find port");
-    assert!(port >= 19000 && port <= 19100);
+    assert!((19000..=19100).contains(&port));
 }
 
 #[test]

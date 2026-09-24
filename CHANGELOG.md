@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 
-- Routine maintenance, documentation updates, and operational improvements.
+### Features
+  - (core) implement static HTTP engine with range 206 support (ref #1)
 
 ## Previous Releases
 
