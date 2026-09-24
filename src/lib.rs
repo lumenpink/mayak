@@ -167,8 +167,26 @@ pub fn verify_auth(
     x_token_header: Option<&str>,
     expected_token: &str,
 ) -> bool {
-    let _ = (auth_header, x_token_header, expected_token);
-    // Failing stub for TDD
+    if expected_token.is_empty() {
+        return true;
+    }
+    if let Some(x_token) = x_token_header {
+        if x_token == expected_token {
+            return true;
+        }
+    }
+    if let Some(auth) = auth_header {
+        let trimmed = auth.trim();
+        if let Some(rest) = trimmed.strip_prefix("Bearer ") {
+            if rest.trim() == expected_token {
+                return true;
+            }
+        } else if let Some(rest) = trimmed.strip_prefix("bearer ") {
+            if rest.trim() == expected_token {
+                return true;
+            }
+        }
+    }
     false
 }
 
@@ -177,9 +195,41 @@ pub fn execute_bridge_command(
     args: &[String],
     input: Option<&str>,
 ) -> Result<BridgeResponse, String> {
-    let _ = (binary, args, input);
-    // Failing stub for TDD
-    Err("Not implemented".to_string())
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let mut child = Command::new(binary)
+        .args(args)
+        .stdin(if input.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn command '{}': {}", binary, e))?;
+
+    if let Some(input_str) = input {
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(input_str.as_bytes());
+        }
+    }
+
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("Process error: {}", e))?;
+
+    let exit_code = output.status.code().unwrap_or(-1);
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    Ok(BridgeResponse {
+        ok: output.status.success(),
+        exit_code,
+        stdout,
+        stderr,
+    })
 }
 
 /// Finds an available port starting from `start_port` up to `start_port + 100`
@@ -349,7 +399,14 @@ pub fn parse_range_header(header: &str, file_size: u64) -> Option<ByteRange> {
 }
 
 /// Prints Gosplan Radio Mayak terminal banner
-pub fn print_banner(host: &str, port: u16, dir: &Path, spa: bool) {
+pub fn print_banner(
+    host: &str,
+    port: u16,
+    dir: &Path,
+    spa: bool,
+    bridge: Option<&str>,
+    has_auth: bool,
+) {
     let canonical = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
     let dir_display = canonical.display();
 
@@ -377,6 +434,12 @@ pub fn print_banner(host: &str, port: u16, dir: &Path, spa: bool) {
     if spa {
         println!("  ⚙️  SPA Mode:   Active (404 -> index.html)");
     }
+    if let Some(cmd) = bridge {
+        println!("  🌉 Bridge:     Active (`{}` -> POST /api/exec)", cmd);
+        if has_auth {
+            println!("  🔒 Auth:       Token verification enabled");
+        }
+    }
     println!("  ⌨️  Shutdown:   Press Ctrl+C to terminate transmission");
     println!();
 }
@@ -395,6 +458,8 @@ Options:
   -l, --localhost         Bind to 127.0.0.1 (restricts access to loopback only)
   -s, --spa               Single Page Application mode: fallback 404 to index.html
   --cors                  Send 'Access-Control-Allow-Origin: *' headers
+  --bridge <command>      Bridge mode: bind POST /api/exec to local command binary
+  --auth <token>          Require authentication token for /api/exec
   -o, --open              Open default web browser automatically
   -q, --quiet             Quiet mode (suppress per-request access logs)
   -h, --help              Display this help message
@@ -404,6 +469,7 @@ Examples:
   {bin}                           # Serve ./site, ./dist, or ./ on 0.0.0.0:8080
   {bin} site/ --open              # Serve site/ and launch browser
   {bin} -p 3000 --spa --cors      # Serve SPA on port 3000 with CORS headers
+  {bin} --bridge cccp --auth xyz  # Serve with command bridge for CCCP
   {bin} --localhost               # Restrict access to local machine only
 "#,
         bin = binary_name,
@@ -432,7 +498,14 @@ pub fn execute(mut config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
     // 3. Print Banner
     if !config.quiet {
-        print_banner(&config.host, config.port, &config.dir, config.spa);
+        print_banner(
+            &config.host,
+            config.port,
+            &config.dir,
+            config.spa,
+            config.bridge.as_deref(),
+            config.auth.is_some(),
+        );
     }
 
     // 4. Open browser if requested
@@ -458,10 +531,12 @@ pub fn execute(mut config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let is_spa = config.spa;
     let is_cors = config.cors;
     let is_quiet = config.quiet;
+    let bridge_cmd = config.bridge.clone();
+    let auth_token = config.auth.clone();
 
     // 6. Request processing loop
     while running.load(Ordering::SeqCst) {
-        let request = match server.recv() {
+        let mut request = match server.recv() {
             Ok(rq) => rq,
             Err(e) => {
                 if !running.load(Ordering::SeqCst) {
@@ -476,6 +551,184 @@ pub fn execute(mut config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
         let method = request.method().clone();
         let url = request.url().to_string();
+        let clean_path = url.split('?').next().unwrap_or(&url);
+
+        // CORS preflight
+        if is_cors && method == Method::Options {
+            let mut resp = Response::empty(StatusCode(204));
+            resp.add_header(
+                Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
+            );
+            resp.add_header(
+                Header::from_bytes(
+                    &b"Access-Control-Allow-Methods"[..],
+                    &b"GET, POST, OPTIONS, HEAD"[..],
+                )
+                .unwrap(),
+            );
+            resp.add_header(
+                Header::from_bytes(
+                    &b"Access-Control-Allow-Headers"[..],
+                    &b"Authorization, Content-Type, X-Mayak-Token"[..],
+                )
+                .unwrap(),
+            );
+            let _ = request.respond(resp);
+            continue;
+        }
+
+        // Bridge API endpoint
+        if clean_path == "/api/exec" {
+            let cmd = match bridge_cmd.as_deref() {
+                Some(c) => c,
+                None => {
+                    let mut resp =
+                        Response::from_string(r#"{"ok":false,"error":"Bridge mode not enabled"}"#)
+                            .with_status_code(StatusCode(404));
+                    resp.add_header(
+                        Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap(),
+                    );
+                    if is_cors {
+                        resp.add_header(
+                            Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..])
+                                .unwrap(),
+                        );
+                    }
+                    let _ = request.respond(resp);
+                    continue;
+                }
+            };
+
+            if method != Method::Post {
+                let mut resp =
+                    Response::from_string(r#"{"ok":false,"error":"Method Not Allowed. Use POST"}"#)
+                        .with_status_code(StatusCode(405));
+                resp.add_header(
+                    Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap(),
+                );
+                if is_cors {
+                    resp.add_header(
+                        Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
+                    );
+                }
+                let _ = request.respond(resp);
+                continue;
+            }
+
+            // Verify authentication
+            if let Some(ref expected) = auth_token {
+                let auth_hdr = request
+                    .headers()
+                    .iter()
+                    .find(|h| h.field.equiv("Authorization"))
+                    .map(|h| h.value.as_str());
+                let x_token_hdr = request
+                    .headers()
+                    .iter()
+                    .find(|h| h.field.equiv("X-Mayak-Token"))
+                    .map(|h| h.value.as_str());
+
+                if !verify_auth(auth_hdr, x_token_hdr, expected) {
+                    let mut resp = Response::from_string(r#"{"ok":false,"error":"Unauthorized"}"#)
+                        .with_status_code(StatusCode(401));
+                    resp.add_header(
+                        Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap(),
+                    );
+                    if is_cors {
+                        resp.add_header(
+                            Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..])
+                                .unwrap(),
+                        );
+                    }
+                    let _ = request.respond(resp);
+                    if !is_quiet {
+                        eprintln!("401 Unauthorized: /api/exec (invalid or missing token)");
+                    }
+                    continue;
+                }
+            }
+
+            // Read JSON body
+            let mut body_str = String::new();
+            if let Err(e) = request.as_reader().read_to_string(&mut body_str) {
+                let mut resp = Response::from_string(format!(
+                    r#"{{"ok":false,"error":"Failed to read request body: {}"}}"#,
+                    e
+                ))
+                .with_status_code(StatusCode(400));
+                resp.add_header(
+                    Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap(),
+                );
+                if is_cors {
+                    resp.add_header(
+                        Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
+                    );
+                }
+                let _ = request.respond(resp);
+                continue;
+            }
+
+            let bridge_req: BridgeRequest = match serde_json::from_str(&body_str) {
+                Ok(r) => r,
+                Err(e) => {
+                    let mut resp = Response::from_string(format!(
+                        r#"{{"ok":false,"error":"Invalid JSON payload: {}"}}"#,
+                        e
+                    ))
+                    .with_status_code(StatusCode(400));
+                    resp.add_header(
+                        Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap(),
+                    );
+                    if is_cors {
+                        resp.add_header(
+                            Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..])
+                                .unwrap(),
+                        );
+                    }
+                    let _ = request.respond(resp);
+                    continue;
+                }
+            };
+
+            let bridge_res =
+                execute_bridge_command(cmd, &bridge_req.args, bridge_req.stdin.as_deref());
+            let (status, body) = match bridge_res {
+                Ok(res) => (
+                    StatusCode(200),
+                    serde_json::to_string(&res).unwrap_or_default(),
+                ),
+                Err(err_msg) => {
+                    let err_obj = BridgeResponse {
+                        ok: false,
+                        exit_code: -1,
+                        stdout: String::new(),
+                        stderr: err_msg,
+                    };
+                    (
+                        StatusCode(500),
+                        serde_json::to_string(&err_obj).unwrap_or_default(),
+                    )
+                }
+            };
+
+            let mut resp = Response::from_string(body).with_status_code(status);
+            resp.add_header(
+                Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap(),
+            );
+            if is_cors {
+                resp.add_header(
+                    Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
+                );
+            }
+            let _ = request.respond(resp);
+            if !is_quiet {
+                println!(
+                    "Bridge Exec: {} {:?} -> status {}",
+                    cmd, bridge_req.args, status.0
+                );
+            }
+            continue;
+        }
 
         if method != Method::Get && method != Method::Head {
             let res = Response::from_string("Method Not Allowed").with_status_code(StatusCode(405));

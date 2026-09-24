@@ -196,3 +196,76 @@ fn test_integration_execute_bridge_command() {
     // 4. Non-existent binary
     assert!(execute_bridge_command("non_existent_binary_xyz_123", &[], None).is_err());
 }
+
+#[test]
+fn test_integration_bridge_endpoint_http() {
+    let port = find_available_port("127.0.0.1", 21500).unwrap();
+    let config = mayak::Config {
+        dir: PathBuf::from("site"),
+        host: "127.0.0.1".to_string(),
+        port,
+        spa: false,
+        cors: true,
+        open_browser: false,
+        quiet: true,
+        bridge: Some("echo".to_string()),
+        auth: Some("secret123".to_string()),
+    };
+
+    std::thread::spawn(move || {
+        let _ = mayak::execute(config);
+    });
+
+    // Wait for server to bind
+    std::thread::sleep(std::time::Duration::from_millis(150));
+
+    // 1. Unauthorized request
+    {
+        use std::io::{Read, Write};
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let req = format!(
+            "POST /api/exec HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\nContent-Length: 2\r\n\r\n{{}}",
+            port
+        );
+        stream.write_all(req.as_bytes()).unwrap();
+        let mut res = String::new();
+        stream.read_to_string(&mut res).unwrap();
+        assert!(res.contains("401 Unauthorized"));
+    }
+
+    // 2. Authorized request
+    {
+        use std::io::{Read, Write};
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let body = r#"{"args":["komsomol","radio"]}"#;
+        let req = format!(
+            "POST /api/exec HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\nAuthorization: Bearer secret123\r\nContent-Length: {}\r\n\r\n{}",
+            port,
+            body.len(),
+            body
+        );
+        stream.write_all(req.as_bytes()).unwrap();
+        let mut res = String::new();
+        stream.read_to_string(&mut res).unwrap();
+        assert!(res.contains("200 OK"));
+        assert!(res.contains("komsomol radio"));
+        assert!(res.contains("\"ok\":true"));
+    }
+
+    // 3. CORS OPTIONS preflight
+    {
+        use std::io::{Read, Write};
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let req = format!(
+            "OPTIONS /api/exec HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\nOrigin: http://localhost:3000\r\n\r\n",
+            port
+        );
+        stream.write_all(req.as_bytes()).unwrap();
+        let mut res = String::new();
+        stream.read_to_string(&mut res).unwrap();
+        assert!(res.contains("204 No Content"));
+        assert!(res
+            .to_ascii_lowercase()
+            .contains("access-control-allow-origin: *"));
+    }
+}
