@@ -1,0 +1,34 @@
+[package]
+name = "mayak"
+version = "0.1.0-dev.1"
+edition = "2021"
+authors = ["Lumen Pink <hi@lumen.pink>"]
+description = "Mayak (mk) — Micro static HTTP server in pure Rust (Gosplan Radio & Static Broadcasting)"
+license = "Apache-2.0"
+repository = "https://codeberg.org/lumenpink/mayak"
+homepage = "https://mayak.2lp.in"
+readme = "README.md"
+keywords = ["http", "server", "static", "minimalist", "cli", "gosplan"]
+categories = ["command-line-utilities", "web-programming::http-server"]
+
+[lib]
+name = "mayak"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mayak"
+path = "src/bin/mayak.rs"
+
+[[bin]]
+name = "mk"
+path = "src/bin/mk.rs"
+
+[dependencies]
+tiny_http = "0.12.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

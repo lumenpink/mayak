@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mayak",
+  "compatibility_date": "2024-09-23",
+  "routes": [
+    {
+      "pattern": "mayak.2lp.in",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "./site"
+  }
+}
