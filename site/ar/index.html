@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ماياك (mk) — خادم HTTP ثابت فائق الخفة بلغة Rust النقية</title>
+  <meta name="description" content="خادم ويب ثابت متعدد المهام وخفيف الوزن مع دعم كامل لطلبات النطاق الجزئي (206) والاستماع الافتراضي على 0.0.0.0 واكتشاف المنافذ التلقائي.">
+  
+  <!-- OpenGraph & Twitter (GOST KokoroSim Standard) -->
+  <meta property="og:title" content="ماياك (mk) — خادم HTTP ثابت فائق الخفة بلغة Rust النقية">
+  <meta property="og:description" content="خادم ويب ثابت متعدد المهام وخفيف الوزن مع دعم كامل لطلبات النطاق الجزئي (206) والاستماع الافتراضي على 0.0.0.0 واكتشاف المنافذ التلقائي.">
+  <meta property="og:image" content="https://mayak.2lp.in/assets/og_preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://mayak.2lp.in/ar/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ماياك (mk) — خادم HTTP ثابت فائق الخفة بلغة Rust النقية">
+  <meta name="twitter:description" content="خادم ويب ثابت متعدد المهام وخفيف الوزن مع دعم كامل لطلبات النطاق الجزئي (206) والاستماع الافتراضي على 0.0.0.0 واكتشاف المنافذ التلقائي.">
+  <meta name="twitter:image" content="https://mayak.2lp.in/assets/og_preview.png">
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚨</text></svg>">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent: #f85149;
+      --accent-hover: #ff7b72;
+      --gold: #d29922;
+      --green: #3fb950;
+      --code-bg: #030407;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 0 1rem;
+    }
+    .lang-switcher {
+      max-width: 900px;
+      margin: 1rem auto 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      font-size: 0.85rem;
+    }
+    .lang-switcher a {
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid transparent;
+    }
+    .lang-switcher a:hover {
+      color: var(--accent);
+      border-color: var(--border);
+    }
+    .lang-switcher a.active {
+      color: var(--gold);
+      font-weight: bold;
+      border-color: var(--gold);
+      background: var(--surface);
+    }
+    header {
+      max-width: 900px;
+      margin: 2.5rem auto 2rem;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+      margin-bottom: 1.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #f0f6fc;
+      margin-bottom: 1rem;
+    }
+    h1 span {
+      color: var(--gold);
+    }
+    .lead {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      max-width: 750px;
+      margin: 0 auto 2rem;
+    }
+    .actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 3rem;
+    }
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    main {
+      max-width: 900px;
+      margin: 0 auto 5rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.5rem;
+      margin: 3rem 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+    .card h3 {
+      font-size: 1.2rem;
+      color: #f0f6fc;
+      margin-bottom: 0.5rem;
+    }
+    .card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      margin: 1.5rem 0;
+      color: #f0f6fc;
+      direction: ltr; /* CLI code is always LTR */
+      text-align: left;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 2rem 0;
+    }
+    th, td {
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      text-align: start;
+    }
+    th {
+      background: var(--surface);
+      color: #f0f6fc;
+    }
+    footer {
+      max-width: 900px;
+      margin: 0 auto 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+  </style>
+  <script>
+    localStorage.setItem('doc_lang', 'ar');
+  </script>
+</head>
+<body>
+
+  <div class="lang-switcher">
+    <a href="../en/">English</a> <a href="../pt/">Português</a> <a href="../es/">Español</a> <a href="../fr/">Français</a> <a href="../de/">Deutsch</a> <a href="../it/">Italiano</a> <a href="../ru/">Русский</a> <a href="../zh/">中文</a> <a href="../ja/">日本語</a> <a href="../ar/" class="active">العربية</a>
+  </div>
+
+  <header>
+    <div class="badge">★ Радиостанция «Маяк» · Gosplan Static HTTP Engine ★</div>
+    <h1>Mayak <span>(mk)</span></h1>
+    <p class="lead">خادم ويب ثابت متعدد المهام وخفيف الوزن مع دعم كامل لطلبات النطاق الجزئي (206) والاستماع الافتراضي على 0.0.0.0 واكتشاف المنافذ التلقائي.</p>
+    <div class="actions">
+      <a href="https://codeberg.org/lumenpink/mayak" class="btn btn-primary">Codeberg Repo</a>
+      <a href="#quickstart" class="btn btn-secondary">CLI Options</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="grid">
+      <div class="card">
+        <h3>⚡ 611 KB Binary</h3>
+        <p>Instant startup (&lt;5ms) in pure Rust without Node or Python runtime overhead.</p>
+      </div>
+      <div class="card">
+        <h3>📻 0.0.0.0 Default</h3>
+        <p>Accessible out of the box on LAN, Tailscale, Wi-Fi, and mobile test devices.</p>
+      </div>
+      <div class="card">
+        <h3>🎵 Range (206) Audio/Video</h3>
+        <p>Full RFC 7233 partial byte-range seeking for media streams and La Craia cockpit.</p>
+      </div>
+      <div class="card">
+        <h3>🔍 Auto Port Discovery</h3>
+        <p>Starts at 8080 and smoothly increments to next free port if occupied.</p>
+      </div>
+    </div>
+
+    <h2 id="quickstart">Quick Start</h2>
+    <pre><code># Serve current folder on 0.0.0.0:8080
+mk
+
+# Serve custom documentation folder and open browser
+mk site/ --open
+
+# Serve Single Page Application (fallback 404 to index.html)
+mk dist/ -p 3000 --spa --cors
+
+# Restrict bind strictly to 127.0.0.1
+mk --localhost</code></pre>
+
+    <h2>Command Line Options</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Flag</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>-p, --port &lt;N&gt;</code></td><td><code>-p 8080</code></td><td>Initial port (auto-increments if busy)</td></tr>
+        <tr><td><code>--host &lt;IP&gt;</code></td><td><code>--host 0.0.0.0</code></td><td>Network interface (default: 0.0.0.0)</td></tr>
+        <tr><td><code>-l, --localhost</code></td><td><code>-l</code></td><td>Bind strictly to 127.0.0.1</td></tr>
+        <tr><td><code>-s, --spa</code></td><td><code>-s</code></td><td>Single Page App mode (fallback 404 to index.html)</td></tr>
+        <tr><td><code>--cors</code></td><td><code>--cors</code></td><td>Send Access-Control-Allow-Origin: * headers</td></tr>
+        <tr><td><code>-o, --open</code></td><td><code>-o</code></td><td>Open default browser automatically</td></tr>
+        <tr><td><code>-q, --quiet</code></td><td><code>-q</code></td><td>Quiet mode (errors only)</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <footer>
+    <p>Mayak (mk) — Free and open source software under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License 2.0</a>.</p>
+    <p>Part of the Gosplan CCCP open source ecosystem.</p>
+  </footer>
+
+</body>
+</html>

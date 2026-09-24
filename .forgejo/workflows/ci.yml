@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    name: "Rust — Tests & Checks"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: https://github.com/actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Install Rust Toolchain"
+        uses: https://github.com/actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: "Cargo Fmt Check"
+        run: cargo fmt -- --check
+
+      - name: "Cargo Clippy (Zero Warnings)"
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: "Cargo Test"
+        run: cargo test --verbose
+
+  build-release:
+    name: "Rust — Release Binaries"
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: "Checkout"
+        uses: https://github.com/actions/checkout@v4
+
+      - name: "Install Rust Toolchain"
+        uses: https://github.com/actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: "Build Release"
+        run: cargo build --release --verbose
+
+      - name: "Verify Binaries"
+        run: |
+          ./target/release/mayak --version
+          ./target/release/mk --version
+
+  publish-nightly:
+    name: "Publish Nightly Release (Codeberg)"
+    runs-on: ubuntu-latest
+    needs: [test, build-release]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: "Checkout"
+        uses: https://github.com/actions/checkout@v4
+
+      - name: "Install Rust Toolchain"
+        uses: https://github.com/actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: "Install 32-bit Multilib, ARM Cross & Targets"
+        run: |
+          sudo apt-get update && sudo apt-get install -y gcc-multilib libc6-dev-i386 gcc-arm-linux-gnueabihf
+          rustup target add i686-unknown-linux-gnu
+          rustup target add armv7-unknown-linux-gnueabihf
+
+      - name: "Build Release Tarballs (64-bit, 32-bit x86, 32-bit ARM)"
+        run: |
+          cargo build --release
+          cargo build --release --target i686-unknown-linux-gnu
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc cargo build --release --target armv7-unknown-linux-gnueabihf
+          mkdir -p dist
+          tar -czvf "dist/mk-linux-x86_64.tar.gz" -C target/release mk mayak
+          tar -czvf "dist/mk-linux-i686.tar.gz" -C target/i686-unknown-linux-gnu/release mk mayak
+          tar -czvf "dist/mk-linux-armv7.tar.gz" -C target/armv7-unknown-linux-gnueabihf/release mk mayak
+
+      - name: "Update Nightly Release Asset"
+        env:
+          TOKEN: ${{ secrets.CODEBERG_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::No token available to publish nightly release."
+            exit 0
+          fi
+
+          REL_JSON=$(curl -s -H "Authorization: token $TOKEN" "https://codeberg.org/api/v1/repos/${{ github.repository }}/releases/tags/nightly")
+          REL_ID=$(echo "$REL_JSON" | sed -n 's/.*"id":[[:space:]]*\([0-9]*\).*/\1/p' | head -n 1)
+
+          if [ -z "$REL_ID" ] || [ "$REL_ID" = "null" ]; then
+            RESP=$(curl -s -X POST \
+              -H "Authorization: token $TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{"tag_name":"nightly","name":"Mayak Nightly Build","body":"Automated rolling nightly build for Mayak static server","prerelease":true}' \
+              "https://codeberg.org/api/v1/repos/${{ github.repository }}/releases")
+            REL_ID=$(echo "$RESP" | sed -n 's/.*"id":[[:space:]]*\([0-9]*\).*/\1/p' | head -n 1)
+          fi
+
+          [ -n "$REL_ID" ] || { echo "Failed to get release ID"; exit 0; }
+
+          for f in dist/*.tar.gz; do
+            [ -f "$f" ] || continue
+            fname=$(basename "$f")
+            ASSET_ID=$(curl -s -H "Authorization: token $TOKEN" "https://codeberg.org/api/v1/repos/${{ github.repository }}/releases/$REL_ID/assets" | \
+              sed -n "s/.*\"id\":[[:space:]]*\([0-9]*\).*\"name\":[[:space:]]*\"${fname}\".*/\1/p" | head -n 1)
+            if [ -n "$ASSET_ID" ]; then
+              curl -s -X DELETE -H "Authorization: token $TOKEN" "https://codeberg.org/api/v1/repos/${{ github.repository }}/releases/$REL_ID/assets/$ASSET_ID" >/dev/null
+            fi
+            curl -s -X POST \
+              -H "Authorization: token $TOKEN" \
+              -H "Content-Type: application/gzip" \
+              --data-binary "@$f" \
+              "https://codeberg.org/api/v1/repos/${{ github.repository }}/releases/$REL_ID/assets?name=${fname}" >/dev/null
+            echo "Uploaded asset: $fname"
+          done
+
+  deploy-site:
+    name: "Deploy Documentation Site"
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: "Checkout"
+        uses: https://github.com/actions/checkout@v4
+
+      - name: "Deploy to Cloudflare Workers"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            npx wrangler deploy
+          fi
+
+      - name: "Deploy to Codeberg Pages (Fallback)"
+        uses: https://codeberg.org/actions/pages@v1
+        with:
+          path: site

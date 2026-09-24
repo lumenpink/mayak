@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mayak (mk) — Gosplan Static HTTP Server</title>
+  <meta name="description" content="Micro static HTTP server in pure Rust with RFC 7233 Range requests, 0.0.0.0 bind, auto port discovery, and instant startup for local dev.">
+  
+  <!-- OpenGraph & Twitter Cards (GOST KokoroSim Standard) -->
+  <meta property="og:title" content="Mayak (mk) — Micro Static HTTP Server in Pure Rust">
+  <meta property="og:description" content="Micro static HTTP server in pure Rust with RFC 7233 Range requests, 0.0.0.0 bind, auto port discovery, and instant startup for local dev.">
+  <meta property="og:image" content="https://mayak.2lp.in/assets/og_preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://mayak.2lp.in/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Mayak (mk) — Micro Static HTTP Server in Pure Rust">
+  <meta name="twitter:description" content="Micro static HTTP server in pure Rust with RFC 7233 Range requests, 0.0.0.0 bind, auto port discovery, and instant startup for local dev.">
+  <meta name="twitter:image" content="https://mayak.2lp.in/assets/og_preview.png">
+
+  <!-- GOST 10 Canonical Language Alternates -->
+  <link rel="alternate" hreflang="x-default" href="https://mayak.2lp.in/en/">
+  <link rel="alternate" hreflang="en" href="https://mayak.2lp.in/en/">
+  <link rel="alternate" hreflang="pt" href="https://mayak.2lp.in/pt/">
+  <link rel="alternate" hreflang="es" href="https://mayak.2lp.in/es/">
+  <link rel="alternate" hreflang="fr" href="https://mayak.2lp.in/fr/">
+  <link rel="alternate" hreflang="de" href="https://mayak.2lp.in/de/">
+  <link rel="alternate" hreflang="it" href="https://mayak.2lp.in/it/">
+  <link rel="alternate" hreflang="ru" href="https://mayak.2lp.in/ru/">
+  <link rel="alternate" hreflang="zh" href="https://mayak.2lp.in/zh/">
+  <link rel="alternate" hreflang="ja" href="https://mayak.2lp.in/ja/">
+  <link rel="alternate" hreflang="ar" href="https://mayak.2lp.in/ar/">
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚨</text></svg>">
+  <script>
+    (function() {
+      var supported = ['en', 'pt', 'es', 'fr', 'de', 'it', 'ru', 'zh', 'ja', 'ar'];
+      var saved = localStorage.getItem('doc_lang');
+      var navLang = (navigator.language || navigator.userLanguage || 'en').split('-')[0].toLowerCase();
+      var target = (saved && supported.indexOf(saved) !== -1) ? saved : ((supported.indexOf(navLang) !== -1) ? navLang : 'en');
+      window.location.replace('./' + target + '/');
+    })();
+  </script>
+  <style>
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+      padding: 4rem 1rem;
+    }
+    h1 { color: #f0f6fc; margin-bottom: 1rem; }
+    p { color: #8b949e; margin-bottom: 2rem; }
+    .langs { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; max-width: 600px; margin: 0 auto; }
+    .langs a { color: #58a6ff; text-decoration: none; padding: 0.5rem 1rem; border: 1px solid #30363d; border-radius: 6px; }
+    .langs a:hover { border-color: #58a6ff; background: #161b22; }
+  </style>
+</head>
+<body>
+  <h1>Mayak (mk) — Маяк</h1>
+  <p>Redirecting to your preferred language / Redirecionando para o seu idioma...</p>
+  <noscript>
+    <div class="langs">
+      <a href="./en/">English</a>
+      <a href="./pt/">Português</a>
+      <a href="./es/">Español</a>
+      <a href="./fr/">Français</a>
+      <a href="./de/">Deutsch</a>
+      <a href="./it/">Italiano</a>
+      <a href="./ru/">Русский</a>
+      <a href="./zh/">中文</a>
+      <a href="./ja/">日本語</a>
+      <a href="./ar/">العربية (RTL)</a>
+    </div>
+  </noscript>
+</body>
+</html>
