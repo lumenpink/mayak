@@ -81,6 +81,8 @@ mk -q
 | `-l, --localhost` | `-l` | Atalho para escutar estritamente em `127.0.0.1` |
 | `-s, --spa` | `-s` | Redireciona 404 para `index.html` (Single Page Apps) |
 | `--cors` | `--cors` | Envia cabeçalhos `Access-Control-Allow-Origin: *` |
+| `--bridge <CMD>` | `--bridge cccp` | Habilita Command Bridge travado no binário especificado |
+| `--auth <TOKEN>` | `--auth segredo` | Exige token Bearer ou X-Mayak-Token para requisições no bridge |
 | `-o, --open` | `-o` | Abre automaticamente o navegador (`xdg-open` / `open`) |
 | `-q, --quiet` | `-q` | Modo silencioso (apenas erros são exibidos) |
 | `-h, --help` | `-h` | Exibe a mensagem de ajuda |

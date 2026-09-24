@@ -34,6 +34,8 @@ Options:
   -l, --localhost         Bind to 127.0.0.1 instead of 0.0.0.0
   -s, --spa               Single Page Application mode: fallback 404 to index.html
   --cors                  Send 'Access-Control-Allow-Origin: *' headers
+  --bridge <command>      Enable Command Bridge locked exclusively to target binary
+  --auth <token>          Require authentication token for bridge requests (or MAYAK_AUTH)
   -o, --open              Open default browser after starting
   -q, --quiet             Quiet mode (suppress request logs, errors only)
   -h, --help              Print this help information
@@ -47,7 +49,8 @@ Options:
 ### 3.1 HTTP Methods
 - `GET`: Responds with full file body or range slice.
 - `HEAD`: Responds with identical headers as `GET`, without the response body.
-- Other methods (`POST`, `PUT`, `DELETE`): Rejected with `405 Method Not Allowed`.
+- `POST /api/exec`: Dispatches execution to the configured `--bridge` command.
+- Other methods or paths: Rejected with `405 Method Not Allowed`.
 
 ### 3.2 Range Requests (RFC 7233)
 If a request contains `Range: bytes=<start>-<end>`:
@@ -67,3 +70,26 @@ All requested paths are canonicalized against the root served directory:
 
 ### 3.4 MIME Types
 MIME types are statically determined based on file extension. Unrecognized extensions default to `application/octet-stream`. Text-based formats default to `charset=utf-8`.
+
+### 3.5 Command Bridge (`POST /api/exec`)
+When `--bridge <binary>` is active:
+1. **Authentication:**
+   - If `--auth <token>` is configured (or `MAYAK_AUTH`), the request MUST include `Authorization: Bearer <token>` or `X-Mayak-Token: <token>`.
+   - Missing or mismatched credentials return `401 Unauthorized`.
+2. **Payload:**
+   - JSON input: `{"args": ["arg1", "arg2", ...], "stdin": "optional text input"}`.
+3. **Execution Sandbox:**
+   - Only the binary specified at server launch (`--bridge <binary>`) can be executed.
+   - Arbitrary binaries cannot be spawned.
+4. **Response:**
+   - Status `200 OK` with `Content-Type: application/json`:
+     ```json
+     {
+       "ok": true,
+       "exit_code": 0,
+       "stdout": "...",
+       "stderr": "..."
+     }
+     ```
+   - If `--bridge` is not enabled, requests to `/api/exec` yield `404 Not Found`.
+
