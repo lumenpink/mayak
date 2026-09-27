@@ -134,7 +134,3 @@ jobs:
             wrangler deploy
           fi
 
-      - name: "Deploy to Codeberg Pages (Fallback)"
-        uses: https://codeberg.org/actions/pages@v1
-        with:
-          path: site
