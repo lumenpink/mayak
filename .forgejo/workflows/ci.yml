@@ -15,18 +15,13 @@ jobs:
   test:
     name: "Rust — Tests & Checks"
     runs-on: ubuntu-latest
+    container:
+      image: lumenpink/gost-ci-rust:latest
     steps:
       - name: "Checkout"
         uses: https://github.com/actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: "Install Rust Toolchain"
-        uses: https://github.com/actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          components: rustfmt, clippy
-          cache: false
 
       - name: "Cargo Fmt Check"
         run: cargo fmt -- --check
@@ -40,16 +35,12 @@ jobs:
   build-release:
     name: "Rust — Release Binaries"
     runs-on: ubuntu-latest
+    container:
+      image: lumenpink/gost-ci-rust:latest
     needs: [test]
     steps:
       - name: "Checkout"
         uses: https://github.com/actions/checkout@v4
-
-      - name: "Install Rust Toolchain"
-        uses: https://github.com/actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          cache: false
 
       - name: "Build Release"
         run: cargo build --release --verbose
@@ -62,29 +53,19 @@ jobs:
   publish-nightly:
     name: "Publish Nightly Release (Codeberg)"
     runs-on: ubuntu-latest
+    container:
+      image: lumenpink/gost-ci-cross:latest
     needs: [test, build-release]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: "Checkout"
         uses: https://github.com/actions/checkout@v4
 
-      - name: "Install Rust Toolchain"
-        uses: https://github.com/actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          cache: false
-
-      - name: "Install 32-bit Multilib, ARM Cross & Targets"
-        run: |
-          sudo apt-get update && sudo apt-get install -y gcc-multilib libc6-dev-i386 gcc-arm-linux-gnueabihf
-          rustup target add i686-unknown-linux-gnu
-          rustup target add armv7-unknown-linux-gnueabihf
-
       - name: "Build Release Tarballs (64-bit, 32-bit x86, 32-bit ARM)"
         run: |
           cargo build --release
           cargo build --release --target i686-unknown-linux-gnu
-          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc cargo build --release --target armv7-unknown-linux-gnueabihf
+          cargo build --release --target armv7-unknown-linux-gnueabihf
           mkdir -p dist
           tar -czvf "dist/mk-linux-x86_64.tar.gz" -C target/release mk mayak
           tar -czvf "dist/mk-linux-i686.tar.gz" -C target/i686-unknown-linux-gnu/release mk mayak
@@ -135,6 +116,8 @@ jobs:
   deploy-site:
     name: "Deploy Documentation Site"
     runs-on: ubuntu-latest
+    container:
+      image: lumenpink/gost-ci-deploy:latest
     needs: [test]
     if: github.ref == 'refs/heads/main'
     steps:
@@ -147,7 +130,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
-            npx wrangler deploy
+            wrangler deploy
           fi
 
       - name: "Deploy to Codeberg Pages (Fallback)"
