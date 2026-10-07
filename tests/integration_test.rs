@@ -268,4 +268,59 @@ fn test_integration_bridge_endpoint_http() {
             .to_ascii_lowercase()
             .contains("access-control-allow-origin: *"));
     }
+
+    // 4. Command Injection attempt via HTTP
+    {
+        use std::io::{Read, Write};
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let body = r#"{"args":["valid_val; cat /etc/passwd"]}"#;
+        let req = format!(
+            "POST /api/exec HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\nAuthorization: Bearer secret123\r\nContent-Length: {}\r\n\r\n{}",
+            port,
+            body.len(),
+            body
+        );
+        stream.write_all(req.as_bytes()).unwrap();
+        let mut res = String::new();
+        stream.read_to_string(&mut res).unwrap();
+        assert!(res.contains("400 Bad Request"));
+        assert!(res.contains("Command injection blocked"));
+    }
 }
+
+#[test]
+fn test_integration_validate_bridge_args_prevents_injection() {
+    let dangerous_inputs = [
+        "foo; whoami",
+        "foo && ls -la",
+        "foo || id",
+        "foo | grep root",
+        "foo `cat /etc/passwd`",
+        "foo $(uname -a)",
+        "foo > /tmp/malicious",
+        "foo < /etc/shadow",
+        "foo\nrm -rf /",
+        "foo\rreboot",
+    ];
+
+    for dangerous in &dangerous_inputs {
+        let args = vec![dangerous.to_string()];
+        let res = mayak::validate_bridge_args(&args);
+        assert!(
+            res.is_err(),
+            "Expected input '{}' to be blocked by validate_bridge_args",
+            dangerous
+        );
+        let err_msg = res.unwrap_err();
+        assert!(err_msg.contains("Command injection blocked"));
+
+        // execute_bridge_command should also fail directly
+        let exec_res = mayak::execute_bridge_command("echo", &args, None);
+        assert!(exec_res.is_err());
+    }
+
+    // Safe arguments should pass
+    let safe_args = vec!["--flag".to_string(), "normal-arg".to_string(), "val_123".to_string()];
+    assert!(mayak::validate_bridge_args(&safe_args).is_ok());
+}
+
