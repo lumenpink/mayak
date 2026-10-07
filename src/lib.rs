@@ -190,11 +190,27 @@ pub fn verify_auth(
     false
 }
 
+/// Validates arguments passed to the command bridge, preventing shell command injection
+pub fn validate_bridge_args(args: &[String]) -> Result<(), String> {
+    const PROHIBITED_CHARS: &[char] = &[';', '&', '|', '`', '$', '>', '<', '\n', '\r'];
+    for arg in args {
+        if let Some(c) = PROHIBITED_CHARS.iter().find(|&&ch| arg.contains(ch)) {
+            return Err(format!(
+                "Command injection blocked: argument '{}' contains prohibited shell character '{}'",
+                arg, c
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub fn execute_bridge_command(
     binary: &str,
     args: &[String],
     input: Option<&str>,
 ) -> Result<BridgeResponse, String> {
+    validate_bridge_args(args)?;
+
     use std::io::Write;
     use std::process::Stdio;
 
@@ -698,6 +714,12 @@ pub fn execute(mut config: Config) -> Result<(), Box<dyn std::error::Error>> {
                     serde_json::to_string(&res).unwrap_or_default(),
                 ),
                 Err(err_msg) => {
+                    let is_injection = err_msg.starts_with("Command injection blocked");
+                    let status_code = if is_injection {
+                        StatusCode(400)
+                    } else {
+                        StatusCode(500)
+                    };
                     let err_obj = BridgeResponse {
                         ok: false,
                         exit_code: -1,
@@ -705,7 +727,7 @@ pub fn execute(mut config: Config) -> Result<(), Box<dyn std::error::Error>> {
                         stderr: err_msg,
                     };
                     (
-                        StatusCode(500),
+                        status_code,
                         serde_json::to_string(&err_obj).unwrap_or_default(),
                     )
                 }
