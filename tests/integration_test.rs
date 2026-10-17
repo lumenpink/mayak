@@ -320,7 +320,10 @@ fn test_integration_validate_bridge_args_prevents_injection() {
     }
 
     // Safe arguments should pass
-    let safe_args = vec!["--flag".to_string(), "normal-arg".to_string(), "val_123".to_string()];
+    let safe_args = vec![
+        "--flag".to_string(),
+        "normal-arg".to_string(),
+        "val_123".to_string(),
+    ];
     assert!(mayak::validate_bridge_args(&safe_args).is_ok());
 }
-
