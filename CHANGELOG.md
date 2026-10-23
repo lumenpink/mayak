@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Bug Fixes
+  - (build) configurar profile.release com LTO fat e strip, e crt-static musl (closes #11)
   - (automation) prevenir injecao de comandos e sanitizar entradas (closes #8)
 
 ### Features
