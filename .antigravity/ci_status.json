@@ -1,0 +1,16 @@
+[
+  {
+    "name": "CI/CD & Sovereign Release to Banca / Build & Publish Mayak Multiarch to Banca (push)",
+    "status": "success",
+    "description": "Successful in 1m56s",
+    "target_url": "/lumen/mayak/actions/runs/2/jobs/1",
+    "updated_at": "2026-10-23T02:04:43-03:00"
+  },
+  {
+    "name": "CI/CD & Sovereign Release to Banca / Checks, Tests & Quality Gates (push)",
+    "status": "success",
+    "description": "Successful in 28s",
+    "target_url": "/lumen/mayak/actions/runs/2/jobs/0",
+    "updated_at": "2026-10-23T00:36:33-03:00"
+  }
+]

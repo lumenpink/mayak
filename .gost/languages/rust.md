@@ -5,7 +5,7 @@
 ---
 
 ## 1. Visão Geral e Filosofia
-Esta especificação define os requisitos de engenharia, ferramentas e padrões para desenvolvimento em **Rust** (edição 2021 ou superior) no ecossistema GOST.
+Esta especificação define os requisitos de engenharia, ferramentas e padrões para desenvolvimento em **Rust** (edição 2024 canônica, compilador `rustc >= 1.99.0`) no ecossistema GOST.
 
 ---
 
@@ -81,7 +81,7 @@ Esta especificação define os requisitos de engenharia, ferramentas e padrões 
    ```
 2. **Dockerfile Canônico (Multi-stage + Scratch Estático musl):**
    ```dockerfile
-   FROM rust:1.80-alpine3.20 AS builder
+   FROM rust:1.99-alpine AS builder
    RUN apk add --no-cache musl-dev
    WORKDIR /build
    COPY Cargo.toml Cargo.lock ./
