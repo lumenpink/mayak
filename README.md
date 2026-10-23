@@ -41,6 +41,9 @@ Isso instalará os binários **`mayak`** e **`mk`** no seu `~/.cargo/bin` (ou `~
 cargo build --release
 cp target/release/mk ~/.local/bin/mk
 cp target/release/mayak ~/.local/bin/mayak
+
+# Compilação estática universal (static-pie) contra musl libc
+cargo build --release --target x86_64-unknown-linux-musl
 ```
 
 ---
