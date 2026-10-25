@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+  - (ci) remover campo permissions incompativel com forgejo actions (closes #13)
+
 ### Bug Fixes
   - (build) configurar profile.release com LTO fat e strip, e crt-static musl (closes #11)
   - (automation) prevenir injecao de comandos e sanitizar entradas (closes #8)
