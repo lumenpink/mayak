@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "slug": "mayak",
+  "title": "Mayak",
+  "site_type": "app",
+  "tagline": "Micro servidor HTTP estático em Rust",
+  "summary": "Servidor HTTP estático minimalista para distribuição e broadcasting local.",
+  "abstract": "O Mayak (mk) é um micro servidor HTTP estático construído em Rust puro, focado em broadcasting rápido, consumo mínimo de memória e independência de dependências externas pesadas.",
+  "tags": [
+    "mayak",
+    "gosplan",
+    "http",
+    "static",
+    "rust",
+    "server"
+  ],
+  "icon": "🗼",
+  "theme": {
+    "bg_color": "#181825",
+    "accent_color": "#f9e2af"
+  }
+}
