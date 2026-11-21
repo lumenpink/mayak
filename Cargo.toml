@@ -1,6 +1,6 @@
 [package]
 name = "mayak"
-version = "0.1.0-dev.37+20261120.d6dd81e"
+version = "0.1.0-dev.38+20261120.c13ecab"
 edition = "2021"
 authors = ["Lumen Pink <hi@lumen.pink>"]
 description = "Mayak (mk) — Micro static HTTP server in pure Rust (Gosplan Radio & Static Broadcasting)"

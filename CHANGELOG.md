@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Changed
+- **ci:** delegar entregas ao Kombinat via Generic Packages (`cccp package upload`) (closes #15)
+
+### Changed
   - (ci) remover campo permissions incompativel com forgejo actions (closes #13)
 
 ### Bug Fixes

@@ -139,71 +139,15 @@ jobs:
           cat SHA256SUMS
           cd "$GITHUB_WORKSPACE"
 
-      - name: "Upload Artifacts to Cloudflare R2"
+      - name: "Publish Artifacts & Site Bundle to Forgejo Generic Packages"
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GAMBI_2LP_IN_TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.GAMBI_2LP_IN_TOKEN || secrets.FORGEJO_TOKEN || secrets.GIT_2LP_TOKEN }}
         run: |
-          CHANNEL="${{ steps.meta.outputs.channel }}"
           VERSION="${{ steps.meta.outputs.version }}"
-
-          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-            echo "Aviso: CLOUDFLARE_API_TOKEN ausente. Pulando upload R2."
-            exit 0
-          fi
-
-          echo "★ Enviando pacotes para o Cloudflare R2 (twolp-bucket / bucket.2lp.in)..."
           for PKG in dist/packages/*; do
             [ -f "$PKG" ] || continue
-            PKG_NAME=$(basename "$PKG")
-            npx wrangler r2 object put "twolp-bucket/downloads/mayak/${CHANNEL}/${PKG_NAME}" \
-              --file="$PKG" --remote || true
+            cccp package upload "$PKG" --version "$VERSION"
           done
-
-      - name: "Rotate Manifest & Commit to Banca"
-        env:
-          GIT_2LP_TOKEN: ${{ secrets.GIT_2LP_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          CHANNEL="${{ steps.meta.outputs.channel }}"
-          VERSION="${{ steps.meta.outputs.version }}"
-
-          echo "★ Clonando repositório primário da Banca para rotação e retenção..."
-          git clone --depth 1 "https://lumen:${GIT_2LP_TOKEN}@gambi.2lp.in/lumen/banca.git" /tmp/banca
-
-          if [ -d "/tmp/banca/site/downloads/mayak" ] && [ -f "/tmp/banca/scripts/rotate-downloads.py" ]; then
-            cd /tmp/banca
-
-            # Registrar cada uma das arquiteturas
-            for ARCH in "linux-amd64" "linux-arm64" "windows-amd64"; do
-              EXT="tar.gz"
-              [ "$ARCH" = "windows-amd64" ] && EXT="zip"
-              PKG_FILE="mayak-${VERSION}-${ARCH}.${EXT}"
-
-              HASH=$(grep "$PKG_FILE" "$GITHUB_WORKSPACE/dist/packages/SHA256SUMS" | awk '{print $1}' || echo "")
-              DOWNLOAD_URL="https://bucket.2lp.in/downloads/mayak/${CHANNEL}/${PKG_FILE}"
-
-              python3 scripts/rotate-downloads.py \
-                --manifest site/downloads/mayak/index.json \
-                --channel "${CHANNEL}" \
-                --arch "${ARCH}" \
-                --version-str "${VERSION}" \
-                --url "${DOWNLOAD_URL}" \
-                --sha256 "${HASH}" \
-                --tarball "${PKG_FILE}" \
-                --app "mayak"
-            done
-
-            # Commitar manifesto atualizado na Banca
-            git config user.name "Mayak Release Bot"
-            git config user.email "bot@2lp.in"
-            git add site/downloads/mayak/index.json
-            if ! git diff --staged --quiet; then
-              git commit -m "chore(downloads): rotate mayak release to ${VERSION} (#10)"
-              git push origin main || echo "Aviso: Push do manifesto na Banca falhou."
-            else
-              echo "Manifesto já estava atualizado."
-            fi
-            cd "$GITHUB_WORKSPACE"
+          if [ -d site ]; then
+            cccp package upload site --version "$VERSION"
           fi
